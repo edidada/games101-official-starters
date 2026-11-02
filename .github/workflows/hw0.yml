@@ -1,0 +1,17 @@
+name: GAMES101 HW0
+on:
+  push:
+    branches: [edidada/hw0]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  transform:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y libeigen3-dev
+      - run: cmake -S hw0 -B build -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build --parallel 2
+      - run: ctest --test-dir build --output-on-failure
+      - run: ./build/Transformation

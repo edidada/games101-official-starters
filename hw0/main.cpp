@@ -1,3 +1,4 @@
+#include "transform.hpp"
 #include<cmath>
 #include<eigen3/Eigen/Core>
 #include<eigen3/Eigen/Dense>
@@ -44,5 +45,12 @@ int main(){
     // matrix multiply i * j
     // matrix multiply vector i * v
 
+    std::cout << "Matrix addition\n" << i+j << '\n';
+    std::cout << "Matrix scalar product\n" << i*2.0f << '\n';
+    std::cout << "Matrix multiplication\n" << i*j << '\n';
+    std::cout << "Matrix-vector multiplication\n" << i*v << '\n';
+    std::cout.precision(10);
+    std::cout << "Assignment P after rotation and translation\n"
+              << transform_point({2, 1}, 45, {1, 2}) << '\n';
     return 0;
 }
