@@ -30,16 +30,16 @@ scenes['slope-reverse']=scenes['slope'][::-1]
 scenes['square-reverse']=scenes['square'][::-1]
 # Independent ray crossing for coverage, plane fit for depth. Samples exactly on
 # an edge are checked separately using the watertight square, not this oracle.
-def reference(scene,samples):
+def reference(scene,samples,size=64):
  offsets=[(.5,.5)] if samples==1 else [(.25,.25),(.75,.25),(.25,.75),(.75,.75)]
- colors=np.zeros((64,64,samples,3));depth=np.full((64,64,samples),np.inf);valid=np.ones((64,64),bool)
- yy,xx=np.mgrid[0:64,0:64];yy=63-yy
+ colors=np.zeros((size,size,samples,3));depth=np.full((size,size,samples),np.inf);valid=np.ones((size,size),bool)
+ yy,xx=np.mgrid[0:size,0:size];yy=size-1-yy
  for t in scene:
   vertices=np.array(t['points'],float);matrix=np.column_stack([vertices[:,:2],np.ones(3)])
   if abs(np.linalg.det(matrix))<1e-9:continue
   plane=np.linalg.solve(matrix,vertices[:,2])
   for sample,(ox,oy) in enumerate(offsets):
-   x=xx+ox;y=yy+oy;inside=np.zeros((64,64),bool);boundary=np.zeros((64,64),bool)
+   x=xx+ox;y=yy+oy;inside=np.zeros((size,size),bool);boundary=np.zeros((size,size),bool)
    for u,v in zip(vertices,np.roll(vertices,-1,axis=0)):
     dx,dy=v[:2]-u[:2]
     boundary|=(abs(dx*(y-u[1])-dy*(x-u[0]))<1e-4)&(x>=min(u[0],v[0])-1e-4)&(x<=max(u[0],v[0])+1e-4)&(y>=min(u[1],v[1])-1e-4)&(y<=max(u[1],v[1])+1e-4)
@@ -71,7 +71,25 @@ for mode in ['single','ssaa']:
  assert a.shape==(700,700,3) and np.array_equal(a,b) and np.count_nonzero(a)>10000
 assert not np.array_equal(cv2.imread('evidence/normal-single.png'),cv2.imread('evidence/normal-ssaa.png'))
 Path('evidence/scenes.json').write_text(json.dumps(scenes,indent=2)+'\n')
-Path('evidence/results.json').write_text(json.dumps({'scene_checks':rows,'draw_order_winding_checks':True,'per_sample_depth_and_resolve':True,'official_images':4,'leak_detection':False},indent=2)+'\n')
+official=[]
+scale=350/np.tan(np.deg2rad(22.5))
+for points,color in [([[2,0,-2],[0,2,-2],[-2,0,-2]],[217,238,185]),([[3.5,-1,-5],[2.5,1.5,-5],[-1,.5,-5]],[185,217,238])]:
+ projected=[[350+scale*x/(5-z),350+scale*y/(5-z),-z] for x,y,z in points]
+ official.append(tri(projected,color))
+official_checks=[]
+for mode,samples in [('single',1),('ssaa',4)]:
+ expected,valid=reference(official,samples,700)
+ # Float transforms may round coordinates close to an edge differently.
+ # Exclude a one-pixel neighborhood of every analytically excluded edge.
+ valid=cv2.erode(valid.astype(np.uint8),np.ones((3,3),np.uint8)).astype(bool)
+ for build in ['normal','sanitized']:
+  got=cv2.imread(f'evidence/{build}-{mode}.png')[:,:,::-1].astype(float)
+  error=float(np.max(np.abs(got[valid]-np.rint(expected[valid]))))
+  assert valid.sum()>480000 and error<=1,(build,mode,error,valid.sum())
+  official_checks.append({'build':build,'samples':samples,'oracle_pixels':int(valid.sum()),'max_channel_error':error})
+  cv2.imwrite(f'evidence/{build}-{mode}-edge-crop.png',cv2.imread(f'evidence/{build}-{mode}.png')[220:300,420:500])
+Path('evidence/official-results.json').write_text(json.dumps(official_checks,indent=2)+'\n')
+Path('evidence/results.json').write_text(json.dumps({'official':official_checks,'scene_checks':rows,'draw_order_winding_checks':True,'per_sample_depth_and_resolve':True,'official_images':4,'leak_detection':False},indent=2)+'\n')
 PY
 
 /usr/bin/python3 - <<'PYZIP'
