@@ -10,5 +10,5 @@ for sources in /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources; do
 done
 apt_options=(-o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
 sudo apt-get "${apt_options[@]}" update
-sudo apt-get "${apt_options[@]}" install -y --no-install-recommends libopencv-dev python3-opencv xvfb xdotool imagemagick
-dpkg-query -W libopencv-dev python3-opencv xvfb xdotool imagemagick > evidence/dependencies.txt
+sudo apt-get "${apt_options[@]}" install -y --no-install-recommends libopencv-dev python3-opencv xvfb xauth xdotool imagemagick
+dpkg-query -W libopencv-dev python3-opencv xvfb xauth xdotool imagemagick > evidence/dependencies.txt
