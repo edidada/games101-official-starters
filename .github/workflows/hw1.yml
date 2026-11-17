@@ -1,0 +1,20 @@
+name: GAMES101 HW1 transformations and wireframe
+on:
+  push:
+    branches: [edidada/hw1]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rasterizer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y libeigen3-dev libopencv-dev python3-opencv xvfb xdotool imagemagick
+      - run: bash ci/verify-hw1.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hw1-evidence
+          path: evidence/
