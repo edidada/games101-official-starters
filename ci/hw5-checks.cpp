@@ -23,11 +23,11 @@ int main() {
  assert(t==7 && u==8 && v==9);
  assert(rayTriangleIntersect({0,0,0},{1,0,0},{0,1,0},{0,0,1},{0,0,-1},t,u,v));
  assert(t==1 && u==0 && v==0);
- t=17;uu=18;vv=19;
- assert(!rayTriangleIntersect({0,0,0},{1,0,0},{0,1,0},{0,0,1},{1,0,0},t,uu,vv));
- assert(t==17 && uu==18 && vv==19);
- assert(!rayTriangleIntersect({0,0,0},{1,0,0},{2,0,0},{0,0,1},{0,0,-1},t,uu,vv));
- assert(!rayTriangleIntersect({0,0,0},{1,0,0},{0,1,0},{0,0,1},{0,0,0},t,uu,vv));
+ t=17;u=18;v=19;
+ assert(!rayTriangleIntersect({0,0,0},{1,0,0},{0,1,0},{0,0,1},{1,0,0},t,u,v));
+ assert(t==17 && u==18 && v==19);
+ assert(!rayTriangleIntersect({0,0,0},{1,0,0},{2,0,0},{0,0,1},{0,0,-1},t,u,v));
+ assert(!rayTriangleIntersect({0,0,0},{1,0,0},{0,1,0},{0,0,1},{0,0,0},t,u,v));
  for(int w:{3,100,640})for(int h:{3,100,480})for(int x:{0,w/2,w-1})for(int y:{0,h/2,h-1}) {
   auto d=primary_ray(x,y,w,h,60);
   assert(std::abs(dotProduct(d,d)-1)<1e-5 && d.z<0);
