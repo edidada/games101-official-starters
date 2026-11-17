@@ -208,12 +208,19 @@ Vector3f castRay(
 // primary rays and cast these rays into the scene. The content of the framebuffer is
 // saved to a file.
 // [/comment]
+Vector3f primary_ray(int x,int y,int width,int height,float fov)
+{
+    const float scale=std::tan(deg2rad(fov*.5f));
+    const float aspect=width/float(height);
+    const float sx=(2*(x+.5f)/width-1)*aspect*scale;
+    const float sy=(1-2*(y+.5f)/height)*scale;
+    return normalize(Vector3f(sx,sy,-1));
+}
+
 void Renderer::Render(const Scene& scene)
 {
     std::vector<Vector3f> framebuffer(scene.width * scene.height);
 
-    float scale = std::tan(deg2rad(scene.fov * 0.5f));
-    float imageAspectRatio = scene.width / (float)scene.height;
 
     // Use this variable as the eye position to start your rays.
     Vector3f eye_pos(0);
@@ -223,14 +230,7 @@ void Renderer::Render(const Scene& scene)
         for (int i = 0; i < scene.width; ++i)
         {
             // generate primary ray direction
-            float x;
-            float y;
-            // TODO: Find the x and y positions of the current pixel to get the direction
-            // vector that passes through it.
-            // Also, don't forget to multiply both of them with the variable *scale*, and
-            // x (horizontal) variable with the *imageAspectRatio*            
-
-            Vector3f dir = Vector3f(x, y, -1); // Don't forget to normalize this direction!
+            Vector3f dir=primary_ray(i,j,scene.width,scene.height,scene.fov);
             framebuffer[m++] = castRay(eye_pos, dir, scene, 0);
         }
         UpdateProgress(j / (float)scene.height);
@@ -241,9 +241,9 @@ void Renderer::Render(const Scene& scene)
     (void)fprintf(fp, "P6\n%d %d\n255\n", scene.width, scene.height);
     for (auto i = 0; i < scene.height * scene.width; ++i) {
         static unsigned char color[3];
-        color[0] = (char)(255 * clamp(0, 1, framebuffer[i].x));
-        color[1] = (char)(255 * clamp(0, 1, framebuffer[i].y));
-        color[2] = (char)(255 * clamp(0, 1, framebuffer[i].z));
+        color[0] = (unsigned char)(255 * clamp(0, 1, framebuffer[i].x));
+        color[1] = (unsigned char)(255 * clamp(0, 1, framebuffer[i].y));
+        color[2] = (unsigned char)(255 * clamp(0, 1, framebuffer[i].z));
         fwrite(color, 1, 3, fp);
     }
     fclose(fp);    

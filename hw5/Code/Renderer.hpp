@@ -16,3 +16,4 @@ public:
 
 private:
 };
+Vector3f primary_ray(int x,int y,int width,int height,float fov);

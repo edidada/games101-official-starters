@@ -3,15 +3,28 @@
 #include "Object.hpp"
 
 #include <cstring>
+#include <array>
+#include <limits>
 
 bool rayTriangleIntersect(const Vector3f& v0, const Vector3f& v1, const Vector3f& v2, const Vector3f& orig,
                           const Vector3f& dir, float& tnear, float& u, float& v)
 {
-    // TODO: Implement this function that tests whether the triangle
-    // that's specified bt v0, v1 and v2 intersects with the ray (whose
-    // origin is *orig* and direction is *dir*)
-    // Also don't forget to update tnear, u and v.
-    return false;
+    using D = std::array<double,3>;
+    auto subtract=[](const Vector3f& a,const Vector3f& b)->D { return {double(a.x)-b.x,double(a.y)-b.y,double(a.z)-b.z}; };
+    auto cross=[](const D& a,const D& b)->D { return {a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]}; };
+    auto dot=[](const D& a,const D& b) {return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];};
+    D direction={dir.x,dir.y,dir.z};
+    const D e1=subtract(v1,v0),e2=subtract(v2,v0),offset=subtract(orig,v0);
+    const D p=cross(direction,e2);
+    const double determinant=dot(e1,p),bound=std::sqrt(dot(e1,e1)*dot(p,p));
+    if (!std::isfinite(determinant) || !std::isfinite(bound) || bound==0 || std::abs(determinant)<=1e-12*bound) return false;
+    const double uu=dot(offset,p)/determinant;
+    if (!(uu>=0 && uu<=1)) return false;
+    const D q=cross(offset,e1);
+    const double vv=dot(direction,q)/determinant,tt=dot(e2,q)/determinant;
+    if (!(vv>=0 && uu+vv<=1 && tt>=0) || !std::isfinite(tt) || tt>std::numeric_limits<float>::max()) return false;
+    tnear=float(tt);u=float(uu);v=float(vv);
+    return true;
 }
 
 class MeshTriangle : public Object
