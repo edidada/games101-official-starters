@@ -4,6 +4,7 @@
 
 #include <cstring>
 #include <array>
+#include <memory>
 #include <limits>
 
 bool rayTriangleIntersect(const Vector3f& v0, const Vector3f& v1, const Vector3f& v2, const Vector3f& orig,
