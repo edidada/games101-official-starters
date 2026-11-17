@@ -1,5 +1,7 @@
 // clang-format off
 #include <iostream>
+#include <cmath>
+#include <stdexcept>
 #include <opencv2/opencv.hpp>
 #include "rasterizer.hpp"
 #include "global.hpp"
@@ -28,11 +30,22 @@ Eigen::Matrix4f get_model_matrix(float rotation_angle)
     return model;
 }
 
-Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio, float zNear, float zFar)
+Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio,
+                                      float zNear, float zFar)
 {
-    // TODO: Copy-paste your implementation from the previous assignment.
-    Eigen::Matrix4f projection;
-
+    if (!std::isfinite(eye_fov) || !std::isfinite(aspect_ratio)
+        || !std::isfinite(zNear) || !std::isfinite(zFar)
+        || eye_fov <= 0 || eye_fov >= 180 || aspect_ratio <= 0
+        || zNear <= 0 || zFar <= zNear)
+        throw std::invalid_argument("invalid perspective frustum");
+    const double scale = 1.0 / std::tan(eye_fov * std::acos(-1.0) / 360.0);
+    const double near = zNear, far = zFar;
+    Eigen::Matrix4f projection = Eigen::Matrix4f::Zero();
+    projection(0, 0) = scale / aspect_ratio;
+    projection(1, 1) = scale;
+    projection(2, 2) = -(far + near) / (far - near);
+    projection(2, 3) = -2 * far * near / (far - near);
+    projection(3, 2) = -1;
     return projection;
 }
 
@@ -42,13 +55,13 @@ int main(int argc, const char** argv)
     bool command_line = false;
     std::string filename = "output.png";
 
-    if (argc == 2)
-    {
-        command_line = true;
-        filename = std::string(argv[1]);
+    int samples=1;
+    for (int i=1;i<argc;++i) {
+        if (std::string(argv[i])=="--ssaa" && samples==1) samples=4;
+        else if (!command_line && std::string(argv[i]).rfind("--",0)!=0) { command_line=true; filename=argv[i]; }
+        else { std::cerr<<"usage: Rasterizer [output.png] [--ssaa]\n"; return 1; }
     }
-
-    rst::rasterizer r(700, 700);
+    rst::rasterizer r(700, 700, samples);
 
     Eigen::Vector3f eye_pos = {0,0,5};
 
@@ -99,7 +112,7 @@ int main(int argc, const char** argv)
         image.convertTo(image, CV_8UC3, 1.0f);
         cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
 
-        cv::imwrite(filename, image);
+        if (!cv::imwrite(filename, image)) return 1;
 
         return 0;
     }
