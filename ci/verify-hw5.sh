@@ -32,6 +32,20 @@ for mode in ['normal','sanitized']:
  rows.append({'build':mode,'size':[w,h],'non_background':nonbackground,'sphere_floor_region_counts':counts})
 assert buffers[0]==buffers[1]
 Path('evidence/render-results.json').write_text(json.dumps(rows,indent=2)+'\n')
+images=[]
+for mode in ['normal','sanitized']:
+ raw=Path(f'evidence/{mode}.ppm').read_bytes();magic,dimensions,maximum,data=raw.split(b'\n',3)
+ w,h=map(int,dimensions.split());assert magic==b'P6' and maximum==b'255' and (w,h)==(1280,960) and len(data)==w*h*3
+ background=data[:3];foreground=sum(data[j:j+3]!=background for j in range(0,len(data),3));assert foreground>50000
+ def pixel(x,y):return tuple(data[(y*w+x)*3:(y*w+x+1)*3])
+ # Fixed diagnostic regions on the visible diffuse sphere, refractive sphere
+ # and checkerboard floor. Preserve samples for visual review as well.
+ probes={name:pixel(x,y) for name,x,y in [('left_sphere',550,470),('right_sphere',700,500),('floor',600,800)]}
+ assert all(bytes(value)!=background for value in probes.values()),probes
+ png(Path(f'evidence/{mode}.png'),w,h,data)
+ images.append({'build':mode,'width':w,'height':h,'foreground_pixels':foreground,'probes':probes})
+assert Path('evidence/normal.ppm').read_bytes()==Path('evidence/sanitized.ppm').read_bytes()
+Path('evidence/render-results.json').write_text(json.dumps(images,indent=2)+'\n')
 with zipfile.ZipFile('evidence/edidada_Homework5.zip','w',zipfile.ZIP_DEFLATED) as z:
  for p in Path('hw5/Code').iterdir():
   if p.is_file():z.write(p,'edidada_Homework5/'+p.name)
