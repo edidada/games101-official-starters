@@ -11,9 +11,11 @@ sleep 1
 import -window "$window" evidence/gui-empty.png
 read -r offset_x offset_y < <(/usr/bin/python3 - <<'PY'
 import cv2,numpy as np
-im=cv2.imread('evidence/gui-empty.png');black=np.all(im==0,axis=2);y,x=np.where(black)
-assert x.max()-x.min()+1==700 and y.max()-y.min()+1==700
-print(x.min(),y.min())
+im=cv2.imread('evidence/gui-empty.png');black=np.all(im==0,axis=2).astype(np.uint8)
+_,_,stats,_=cv2.connectedComponentsWithStats(black)
+x,y,w,h,area=max(stats[1:],key=lambda row:row[4])
+assert (w,h,area)==(700,700,490000),(x,y,w,h,area)
+print(x,y)
 PY
 )
 for xy in '80 550' '180 80' '500 120' '620 550'; do
