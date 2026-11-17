@@ -3,10 +3,10 @@ set -euo pipefail
 mkdir -p evidence
 source_dir=$(dirname "$(find hw1 -name main.cpp -print -quit)")
 git rev-parse HEAD > evidence/commit.txt
-cmake -S "$source_dir" -B build -DCMAKE_BUILD_TYPE=Release
+cmake -S "$source_dir" -B build -DCMAKE_BUILD_TYPE=Release -DHW1_BUILD_CHECKS=ON
 cmake --build build --parallel 2
 ./build/hw1-checks | tee evidence/invariants.txt
-cmake -S "$source_dir" -B build-sanitized -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' -DCMAKE_EXE_LINKER_FLAGS='-fsanitize=address,undefined'
+cmake -S "$source_dir" -B build-sanitized -DCMAKE_BUILD_TYPE=Debug -DHW1_BUILD_CHECKS=ON -DCMAKE_CXX_FLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' -DCMAKE_EXE_LINKER_FLAGS='-fsanitize=address,undefined'
 cmake --build build-sanitized --parallel 2
 ASAN_OPTIONS=detect_leaks=0 ./build-sanitized/hw1-checks | tee evidence/invariants-sanitized.txt
 ASAN_OPTIONS=detect_leaks=0 /usr/bin/python3 - <<'PY'
@@ -50,3 +50,21 @@ for state,angle in [('initial',0),('a',10),('d',0)]:
 assert 'frame count:' in Path('evidence/gui.stdout').read_text()
 Path('evidence/gui-results.json').write_text(json.dumps({'frames':rows,'esc_exit':0},indent=2)+'\n')
 PY
+
+/usr/bin/python3 - <<'PYZIP'
+from pathlib import Path
+import zipfile,tempfile,subprocess,cv2,numpy as np
+source=next(Path('hw1').rglob('main.cpp')).parent
+archive=Path('evidence/edidada_Homework1.zip')
+with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as z:
+ for p in sorted(source.iterdir()):
+  if p.is_file():z.write(p,'edidada_Homework1/'+p.name)
+with tempfile.TemporaryDirectory(prefix='hw1-package-') as temporary:
+ root=Path(temporary)
+ with zipfile.ZipFile(archive) as z:z.extractall(root)
+ subprocess.run(['cmake','-S',str(root/'edidada_Homework1'),'-B',str(root/'build')],check=True)
+ subprocess.run(['cmake','--build',str(root/'build'),'--parallel','2'],check=True)
+ subprocess.run([str(root/'build/Rasterizer'),'-r','20',str(root/'render.png')],check=True,timeout=20)
+ assert np.array_equal(cv2.imread(str(root/'render.png')),cv2.imread('evidence/build-20.png'))
+Path('evidence/package.result').write_text('PASS: clean source ZIP extracted, independently configured/built and rendered 20 degrees identically.\n')
+PYZIP
