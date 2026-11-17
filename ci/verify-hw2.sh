@@ -73,3 +73,23 @@ assert not np.array_equal(cv2.imread('evidence/normal-single.png'),cv2.imread('e
 Path('evidence/scenes.json').write_text(json.dumps(scenes,indent=2)+'\n')
 Path('evidence/results.json').write_text(json.dumps({'scene_checks':rows,'draw_order_winding_checks':True,'per_sample_depth_and_resolve':True,'official_images':4,'leak_detection':False},indent=2)+'\n')
 PY
+
+/usr/bin/python3 - <<'PYZIP'
+from pathlib import Path
+import zipfile,tempfile,subprocess,cv2,numpy as np
+source=Path('hw2/代码框架');archive=Path('evidence/edidada_Homework2.zip')
+with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as z:
+ for p in sorted(source.iterdir()):
+  if p.is_file():z.write(p,'edidada_Homework2/'+p.name)
+ for mode in ['single','ssaa']:z.write(f'evidence/normal-{mode}.png',f'edidada_Homework2/{mode}.png')
+with tempfile.TemporaryDirectory(prefix='hw2-package-') as temporary:
+ root=Path(temporary)
+ with zipfile.ZipFile(archive) as z:z.extractall(root)
+ subprocess.run(['cmake','-S',str(root/'edidada_Homework2'),'-B',str(root/'build')],check=True)
+ subprocess.run(['cmake','--build',str(root/'build'),'--parallel','2'],check=True)
+ for mode in ['single','ssaa']:
+  args=[str(root/'build/Rasterizer'),str(root/'render.png')]+(['--ssaa'] if mode=='ssaa' else [])
+  subprocess.run(args,check=True,timeout=20)
+  assert np.array_equal(cv2.imread(str(root/'render.png')),cv2.imread(f'evidence/normal-{mode}.png'))
+Path('evidence/package.result').write_text('PASS: source and both result images packaged; clean independent build reproduces single/SSAA images.\n')
+PYZIP
