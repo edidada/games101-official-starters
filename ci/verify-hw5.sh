@@ -40,7 +40,7 @@ for mode in ['normal','sanitized']:
  def pixel(x,y):return tuple(data[(y*w+x)*3:(y*w+x+1)*3])
  # Fixed diagnostic regions on the visible diffuse sphere, refractive sphere
  # and checkerboard floor. Preserve samples for visual review as well.
- probes={name:pixel(x,y) for name,x,y in [('left_sphere',550,470),('right_sphere',700,500),('floor',600,800)]}
+ probes={name:pixel(x,y) for name,x,y in [('left_sphere',550,470),('right_sphere',700,540),('floor',600,700)]}
  assert all(bytes(value)!=background for value in probes.values()),probes
  png(Path(f'evidence/{mode}.png'),w,h,data)
  images.append({'build':mode,'width':w,'height':h,'foreground_pixels':foreground,'probes':probes})
