@@ -11,7 +11,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y libopencv-dev python3-opencv xvfb xdotool imagemagick
+      - run: bash ci/install-hw4-deps.sh
       - run: bash ci/verify-hw4.sh
       - uses: actions/upload-artifact@v4
         if: always()
