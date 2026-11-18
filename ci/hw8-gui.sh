@@ -19,8 +19,10 @@ import -window "$window" "$prefix-initial.png"
 xdotool key --window "$window" 1 2 c equal minus n
 sleep 0.3
 import -window "$window" "$prefix-constraints.png"
-xdotool key --window "$window" Escape
+xdotool keydown --window "$window" Escape
 wait "$pid"
+# Release globally after the target closes; never send KeyRelease to a dead XID.
+xdotool keyup Escape
 trap - EXIT
 for text in 'KEY 1' 'KEY 2' 'KEY C' 'KEY =' 'KEY -' 'KEY N';do grep -q "$text" "$prefix.log";done
 grep -q 'steps=64' "$prefix.log"
