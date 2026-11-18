@@ -20,6 +20,17 @@ for mode in normal sanitized; do
   render "$mode" "check-$mode-t$threads" --size 128 --spp 8 --threads "$threads"
  done
 done
+# The visually banded first implementation must fail the new stream check.
+regression="$(mktemp -d)"
+git archive 6661f1d7ab27f1ac424f2d4e0fcdb9fcbf125842 hw7/Assignment7 | tar -x -C "$regression"
+cp "$source/tests.cpp" "$regression/hw7/Assignment7/tests.cpp"
+cmake -S "$regression/hw7/Assignment7" -B "$regression/build" -DCMAKE_BUILD_TYPE=Release > "$evidence/rng-regression-build.log" 2>&1
+cmake --build "$regression/build" --target hw7_tests --parallel 2 >> "$evidence/rng-regression-build.log" 2>&1
+if "$regression/build/hw7_tests" --rng-only > "$evidence/rng-regression-old.log" 2>&1;then
+ echo 'Old correlated streams unexpectedly passed' >&2;exit 1
+fi
+grep -q 'adjacent pixel RNG streams overlap' "$evidence/rng-regression-old.log"
+printf '%s\n' 'PASS: old 6661f1d fails stream independence; final normal/sanitized pass.' > "$evidence/rng-regression.result"
 # Same image/work, same runner, three rounds with alternating method order.
 for round in 1 2 3; do
  order='1 4'

@@ -8,6 +8,29 @@ const float EPSILON=0.00001f;
 namespace {
 void require(bool value,const char* message) { if(!value) throw std::runtime_error(message); }
 void close(double a,double b,double tolerance,const char* message) { require(std::abs(a-b)<=tolerance,message); }
+void randomStreams() {
+    std::vector<float> first,second;
+    for(uint64_t pixel=0;pixel<4096;++pixel) {
+        seed_random(7+UINT64_C(0x9e3779b97f4a7c15)*(pixel+1));
+        first.push_back(get_random_float());second.push_back(get_random_float());
+    }
+    int overlap=0;
+    for(size_t i=1;i<first.size();++i) if(first[i]==second[i-1]) ++overlap;
+    require(overlap<2,"adjacent pixel RNG streams overlap");
+    double sumX=0,sumY=0,sumXX=0,sumYY=0,sumXY=0;
+    for(size_t i=1;i<first.size();++i) {
+        double x=first[i-1],y=first[i];
+        sumX+=x;sumY+=y;sumXX+=x*x;sumYY+=y*y;sumXY+=x*y;
+    }
+    double n=first.size()-1;
+    double correlation=(n*sumXY-sumX*sumY)/std::sqrt((n*sumXX-sumX*sumX)*(n*sumYY-sumY*sumY));
+    require(std::abs(correlation)<0.08,"adjacent pixel RNG correlation");
+    seed_random(123);std::vector<float> repeated;
+    for(int i=0;i<64;++i) repeated.push_back(get_random_float());
+    seed_random(123);
+    for(float value:repeated) require(value==get_random_float(),"RNG seed reproducibility");
+    std::cout<<"RNG pixels=4096 stream_shift_matches="<<overlap<<" neighbor_correlation="<<correlation<<" PASS\n";
+}
 void sampling() {
     seed_random(61);
     Material a(DIFFUSE,Vector3f(2)),b(DIFFUSE,Vector3f(3));
@@ -126,7 +149,9 @@ void transport() {
     std::cout<<"TRANSPORT quadrature_samples=100000 blocked=1000 camera_emission=pass no_double_count=pass PASS\n";
 }
 }
-int main() {
-    try { std::cout<<std::setprecision(12);sampling();materials();transport(); }
+int main(int argc,char** argv) {
+    try { std::cout<<std::setprecision(12);randomStreams();
+        if(argc==2&&std::string(argv[1])=="--rng-only") return 0;
+        sampling();materials();transport(); }
     catch(const std::exception& error) { std::cerr<<error.what()<<'\n';return 1; }
 }

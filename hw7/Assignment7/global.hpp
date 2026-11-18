@@ -33,7 +33,14 @@ inline  bool solveQuadratic(const float &a, const float &b, const float &c, floa
 // SplitMix64 state belongs to the executing thread; the renderer resets it
 // for each pixel, so scheduling and thread count cannot change the image.
 inline thread_local uint64_t random_state = 1;
-inline void seed_random(uint64_t seed) { random_state = seed; }
+inline void seed_random(uint64_t seed) {
+    // Hash the pixel identifier before entering the additive generator. Merely
+    // spacing states by its increment makes adjacent pixels share one stream.
+    uint64_t z = seed + UINT64_C(0x9e3779b97f4a7c15);
+    z = (z ^ (z >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
+    z = (z ^ (z >> 27)) * UINT64_C(0x94d049bb133111eb);
+    random_state = z ^ (z >> 31);
+}
 inline float get_random_float() {
     uint64_t z = (random_state += UINT64_C(0x9e3779b97f4a7c15));
     z = (z ^ (z >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
