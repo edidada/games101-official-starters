@@ -1,0 +1,19 @@
+name: GAMES101 HW7 path tracing
+on:
+  push:
+    branches: [edidada/hw7]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  path-tracing:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash ci/verify-hw7.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hw7-evidence
+          path: evidence/

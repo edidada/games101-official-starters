@@ -35,7 +35,9 @@ public:
     Intersection Intersect(const Ray &ray) const;
     Intersection getIntersection(BVHBuildNode* node, const Ray& ray)const;
     bool IntersectP(const Ray &ray) const;
-    BVHBuildNode* root;
+    BVHBuildNode* root = nullptr;
+    BVHAccel(const BVHAccel&) = delete;
+    BVHAccel& operator=(const BVHAccel&) = delete;
 
     // BVHAccel Private Methods
     BVHBuildNode* recursiveBuild(std::vector<Object*>objects);

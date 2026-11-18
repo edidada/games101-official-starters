@@ -16,7 +16,7 @@ public:
     float radius, radius2;
     Material *m;
     float area;
-    Sphere(const Vector3f &c, const float &r, Material* mt = new Material()) : center(c), radius(r), radius2(r * r), m(mt), area(4 * M_PI *r *r) {}
+    Sphere(const Vector3f &c, const float &r, Material* mt) : center(c), radius(r), radius2(r * r), m(mt), area(4 * M_PI *r *r) {}
     bool intersect(const Ray& ray) {
         // analytic solution
         Vector3f L = ray.origin - center;
@@ -57,11 +57,14 @@ public:
         if (!solveQuadratic(a, b, c, t0, t1)) return result;
         if (t0 < 0) t0 = t1;
         if (t0 < 0) return result;
+        if (t0 < ray.t_min) t0=t1;
+        if (t0 < ray.t_min || t0 > ray.t_max) return result;
         result.happened=true;
 
         result.coords = Vector3f(ray.origin + ray.direction * t0);
         result.normal = normalize(Vector3f(result.coords - center));
         result.m = this->m;
+        result.emit = m->getEmission();
         result.obj = this;
         result.distance = t0;
         return result;
@@ -71,18 +74,20 @@ public:
     { N = normalize(P - center); }
 
     Vector3f evalDiffuseColor(const Vector2f &st)const {
-        //return m->getColor();
+        return m ? m->Kd : Vector3f(0);
     }
     Bounds3 getBounds(){
         return Bounds3(Vector3f(center.x-radius, center.y-radius, center.z-radius),
                        Vector3f(center.x+radius, center.y+radius, center.z+radius));
     }
     void Sample(Intersection &pos, float &pdf){
-        float theta = 2.0 * M_PI * get_random_float(), phi = M_PI * get_random_float();
-        Vector3f dir(std::cos(phi), std::sin(phi)*std::cos(theta), std::sin(phi)*std::sin(theta));
+        float z=1-2*get_random_float(), phi=2*M_PI*get_random_float();
+        float r=std::sqrt(std::max(0.f,1-z*z));
+        Vector3f dir(r*std::cos(phi),r*std::sin(phi),z);
         pos.coords = center + radius * dir;
         pos.normal = dir;
         pos.emit = m->getEmission();
+        pos.m=m; pos.obj=this; pos.happened=true;
         pdf = 1.0f / area;
     }
     float getArea(){

@@ -8,36 +8,8 @@
 #include "Triangle.hpp"
 #include <cassert>
 #include <array>
-
-bool rayTriangleIntersect(const Vector3f& v0, const Vector3f& v1,
-                          const Vector3f& v2, const Vector3f& orig,
-                          const Vector3f& dir, float& tnear, float& u, float& v)
-{
-    Vector3f edge1 = v1 - v0;
-    Vector3f edge2 = v2 - v0;
-    Vector3f pvec = crossProduct(dir, edge2);
-    float det = dotProduct(edge1, pvec);
-    if (det == 0 || det < 0)
-        return false;
-
-    Vector3f tvec = orig - v0;
-    u = dotProduct(tvec, pvec);
-    if (u < 0 || u > det)
-        return false;
-
-    Vector3f qvec = crossProduct(tvec, edge1);
-    v = dotProduct(dir, qvec);
-    if (v < 0 || u + v > det)
-        return false;
-
-    float invDet = 1 / det;
-
-    tnear = dotProduct(edge2, qvec) * invDet;
-    u *= invDet;
-    v *= invDet;
-
-    return true;
-}
+#include <memory>
+#include <stdexcept>
 
 class Triangle : public Object
 {
@@ -76,23 +48,26 @@ public:
         float x = std::sqrt(get_random_float()), y = get_random_float();
         pos.coords = v0 * (1.0f - x) + v1 * (x * (1.0f - y)) + v2 * (x * y);
         pos.normal = this->normal;
-        pdf = 1.0f / area;
+        pos.obj = this; pos.m = m; pos.emit = m ? m->getEmission() : Vector3f(0);
+        pos.happened = area > 0;
+        pdf = area > 0 ? 1.0f / area : 0;
     }
     float getArea(){
         return area;
     }
     bool hasEmit(){
-        return m->hasEmission();
+        return m && m->hasEmission();
     }
 };
 
 class MeshTriangle : public Object
 {
 public:
-    MeshTriangle(const std::string& filename, Material *mt = new Material())
+    MeshTriangle(const std::string& filename, Material *mt)
     {
         objl::Loader loader;
-        loader.LoadFile(filename);
+        if (!loader.LoadFile(filename) || loader.LoadedMeshes.size()!=1)
+            throw std::runtime_error("Expected one mesh in " + filename);
         area = 0;
         m = mt;
         assert(loader.LoadedMeshes.size() == 1);
@@ -132,29 +107,16 @@ public:
             ptrs.push_back(&tri);
             area += tri.area;
         }
-        bvh = new BVHAccel(ptrs);
+        bvh = std::make_unique<BVHAccel>(ptrs);
     }
 
-    bool intersect(const Ray& ray) { return true; }
-
-    bool intersect(const Ray& ray, float& tnear, uint32_t& index) const
-    {
-        bool intersect = false;
-        for (uint32_t k = 0; k < numTriangles; ++k) {
-            const Vector3f& v0 = vertices[vertexIndex[k * 3]];
-            const Vector3f& v1 = vertices[vertexIndex[k * 3 + 1]];
-            const Vector3f& v2 = vertices[vertexIndex[k * 3 + 2]];
-            float t, u, v;
-            if (rayTriangleIntersect(v0, v1, v2, ray.origin, ray.direction, t,
-                                     u, v) &&
-                t < tnear) {
-                tnear = t;
-                index = k;
-                intersect |= true;
-            }
-        }
-
-        return intersect;
+    bool intersect(const Ray& ray) { return bvh->IntersectP(ray); }
+    bool intersect(const Ray& ray, float& tnear, uint32_t& index) const {
+        auto hit=bvh->Intersect(ray);
+        if (!hit.happened || hit.distance>=tnear) return false;
+        tnear=float(hit.distance);
+        index=uint32_t(static_cast<Triangle*>(hit.obj)-triangles.data());
+        return true;
     }
 
     Bounds3 getBounds() { return bounding_box; }
@@ -163,16 +125,7 @@ public:
                               const uint32_t& index, const Vector2f& uv,
                               Vector3f& N, Vector2f& st) const
     {
-        const Vector3f& v0 = vertices[vertexIndex[index * 3]];
-        const Vector3f& v1 = vertices[vertexIndex[index * 3 + 1]];
-        const Vector3f& v2 = vertices[vertexIndex[index * 3 + 2]];
-        Vector3f e0 = normalize(v1 - v0);
-        Vector3f e1 = normalize(v2 - v1);
-        N = normalize(crossProduct(e0, e1));
-        const Vector2f& st0 = stCoordinates[vertexIndex[index * 3]];
-        const Vector2f& st1 = stCoordinates[vertexIndex[index * 3 + 1]];
-        const Vector2f& st2 = stCoordinates[vertexIndex[index * 3 + 2]];
-        st = st0 * (1 - uv.x - uv.y) + st1 * uv.x + st2 * uv.y;
+        N = triangles.at(index).normal; st = uv;
     }
 
     Vector3f evalDiffuseColor(const Vector2f& st) const
@@ -203,28 +156,26 @@ public:
         return area;
     }
     bool hasEmit(){
-        return m->hasEmission();
+        return m && m->hasEmission();
     }
 
     Bounds3 bounding_box;
-    std::unique_ptr<Vector3f[]> vertices;
-    uint32_t numTriangles;
-    std::unique_ptr<uint32_t[]> vertexIndex;
-    std::unique_ptr<Vector2f[]> stCoordinates;
-
     std::vector<Triangle> triangles;
-
-    BVHAccel* bvh;
+    std::unique_ptr<BVHAccel> bvh;
     float area;
 
     Material* m;
 };
 
-inline bool Triangle::intersect(const Ray& ray) { return true; }
+inline bool Triangle::intersect(const Ray& ray) { return getIntersection(ray).happened; }
 inline bool Triangle::intersect(const Ray& ray, float& tnear,
                                 uint32_t& index) const
 {
-    return false;
+    Intersection hit = const_cast<Triangle*>(this)->getIntersection(ray);
+    if (!hit.happened || hit.distance >= tnear) return false;
+    tnear = static_cast<float>(hit.distance);
+    index = 0;
+    return true;
 }
 
 inline Bounds3 Triangle::getBounds() { return Union(Bounds3(v0, v1), v2); }
@@ -232,28 +183,38 @@ inline Bounds3 Triangle::getBounds() { return Union(Bounds3(v0, v1), v2); }
 inline Intersection Triangle::getIntersection(Ray ray)
 {
     Intersection inter;
-
-    if (dotProduct(ray.direction, normal) > 0)
-        return inter;
-    double u, v, t_tmp = 0;
-    Vector3f pvec = crossProduct(ray.direction, e2);
-    double det = dotProduct(e1, pvec);
-    if (fabs(det) < EPSILON)
-        return inter;
-
-    double det_inv = 1. / det;
-    Vector3f tvec = ray.origin - v0;
-    u = dotProduct(tvec, pvec) * det_inv;
-    if (u < 0 || u > 1)
-        return inter;
-    Vector3f qvec = crossProduct(tvec, e1);
-    v = dotProduct(ray.direction, qvec) * det_inv;
-    if (v < 0 || u + v > 1)
-        return inter;
-    t_tmp = dotProduct(e2, qvec) * det_inv;
-
-    // TODO find ray triangle intersection
-
+    using D = std::array<double, 3>;
+    auto cross = [](const D& a, const D& b) -> D {
+        return {a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]};
+    };
+    auto dot = [](const D& a, const D& b) {
+        return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+    };
+    D a{}, b{}, origin{}, direction{};
+    for (int axis = 0; axis < 3; ++axis) {
+        a[axis] = double(v1[axis]) - v0[axis];
+        b[axis] = double(v2[axis]) - v0[axis];
+        origin[axis] = double(ray.origin[axis]) - v0[axis];
+        direction[axis] = ray.direction[axis];
+    }
+    D p = cross(direction, b);
+    double det = dot(a, p);
+    // Preserve the starter's front-face-only convention. No absolute epsilon:
+    // a small triangle is not necessarily degenerate.
+    if (!(det > 0) || !std::isfinite(det)) return inter;
+    double u = dot(origin, p) / det;
+    D q = cross(origin, a);
+    double v = dot(direction, q) / det;
+    if (!(u >= 0 && v >= 0 && u + v <= 1)) return inter;
+    double t = dot(b, q) / det;
+    if (!std::isfinite(t) || t < ray.t_min || t > ray.t_max) return inter;
+    inter.happened = true;
+    inter.distance = t;
+    inter.coords = ray(t);
+    inter.normal = normal;
+    inter.obj = this;
+    inter.m = m;
+    inter.emit = m ? m->getEmission() : Vector3f(0);
     return inter;
 }
 

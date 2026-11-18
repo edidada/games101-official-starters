@@ -2,6 +2,8 @@
 #include <iostream>
 #include <cmath>
 #include <random>
+#include <limits>
+#include <cstdint>
 
 #undef M_PI
 #define M_PI 3.141592653589793f
@@ -28,13 +30,16 @@ inline  bool solveQuadratic(const float &a, const float &b, const float &c, floa
     return true;
 }
 
-inline float get_random_float()
-{
-    std::random_device dev;
-    std::mt19937 rng(dev());
-    std::uniform_real_distribution<float> dist(0.f, 1.f); // distribution in range [1, 6]
-
-    return dist(rng);
+// SplitMix64 state belongs to the executing thread; the renderer resets it
+// for each pixel, so scheduling and thread count cannot change the image.
+inline thread_local uint64_t random_state = 1;
+inline void seed_random(uint64_t seed) { random_state = seed; }
+inline float get_random_float() {
+    uint64_t z = (random_state += UINT64_C(0x9e3779b97f4a7c15));
+    z = (z ^ (z >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
+    z = (z ^ (z >> 27)) * UINT64_C(0x94d049bb133111eb);
+    z ^= z >> 31;
+    return float(z >> 40) * (1.0f / 16777216.0f);
 }
 
 inline void UpdateProgress(float progress)
