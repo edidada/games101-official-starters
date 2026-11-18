@@ -3,6 +3,7 @@
 //
 
 #include <fstream>
+#include <stdexcept>
 #include "Scene.hpp"
 #include "Renderer.hpp"
 
@@ -28,13 +29,8 @@ void Renderer::Render(const Scene& scene)
             float x = (2 * (i + 0.5) / (float)scene.width - 1) *
                       imageAspectRatio * scale;
             float y = (1 - 2 * (j + 0.5) / (float)scene.height) * scale;
-            // TODO: Find the x and y positions of the current pixel to get the
-            // direction
-            //  vector that passes through it.
-            // Also, don't forget to multiply both of them with the variable
-            // *scale*, and x (horizontal) variable with the *imageAspectRatio*
-
-            // Don't forget to normalize this direction!
+            Vector3f direction = normalize(Vector3f(x, y, -1));
+            framebuffer[m++] = scene.castRay(Ray(eye_pos, direction), 0);
 
         }
         UpdateProgress(j / (float)scene.height);
@@ -43,6 +39,7 @@ void Renderer::Render(const Scene& scene)
 
     // save framebuffer to file
     FILE* fp = fopen("binary.ppm", "wb");
+    if (!fp) throw std::runtime_error("Cannot open binary.ppm");
     (void)fprintf(fp, "P6\n%d %d\n255\n", scene.width, scene.height);
     for (auto i = 0; i < scene.height * scene.width; ++i) {
         static unsigned char color[3];

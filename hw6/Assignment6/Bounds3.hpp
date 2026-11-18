@@ -15,8 +15,8 @@ class Bounds3
     Vector3f pMin, pMax; // two points to specify the bounding box
     Bounds3()
     {
-        double minNum = std::numeric_limits<double>::lowest();
-        double maxNum = std::numeric_limits<double>::max();
+        float minNum = std::numeric_limits<float>::lowest();
+        float maxNum = std::numeric_limits<float>::max();
         pMax = Vector3f(minNum, minNum, minNum);
         pMin = Vector3f(maxNum, maxNum, maxNum);
     }
@@ -93,10 +93,32 @@ class Bounds3
 inline bool Bounds3::IntersectP(const Ray& ray, const Vector3f& invDir,
                                 const std::array<int, 3>& dirIsNeg) const
 {
-    // invDir: ray direction(x,y,z), invDir=(1.0/x,1.0/y,1.0/z), use this because Multiply is faster that Division
-    // dirIsNeg: ray direction(x,y,z), dirIsNeg=[int(x>0),int(y>0),int(z>0)], use this to simplify your logic
-    // TODO test if ray bound intersects
-    
+    // Clip the ray interval against each closed slab. Handle parallel axes
+    // explicitly: a boundary origin multiplied by infinity would produce NaN.
+    (void)dirIsNeg;
+    (void)invDir;
+    double near = ray.t_min, far = ray.t_max;
+    if (near > far) return false;
+    for (int axis = 0; axis < 3; ++axis) {
+        double lo = pMin[axis], hi = pMax[axis];
+        double origin = ray.origin[axis], direction = ray.direction[axis];
+        if (lo > hi || !std::isfinite(origin) || !std::isfinite(direction))
+            return false;
+        if (direction == 0) {
+            if (origin < lo || origin > hi) return false;
+            continue;
+        }
+        // The starter stores invDir in floats. Recompute in double to
+        // avoid overflow for subnormal directions and slab roundoff.
+        double inverse = 1.0 / direction;
+        double a = (lo - origin) * inverse;
+        double b = (hi - origin) * inverse;
+        if (a > b) std::swap(a, b);
+        near = std::max(near, a);
+        far = std::min(far, b);
+        if (near > far) return false;
+    }
+    return true;
 }
 
 inline Bounds3 Union(const Bounds3& b1, const Bounds3& b2)
