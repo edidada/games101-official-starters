@@ -28,12 +28,14 @@ struct AppConfig {
     // Environment variables
     gravity = Vector2D(0, -1);
     steps_per_frame = 64;
+    frame_limit=0;
   }
 
   float mass;
   float ks;
 
-  float steps_per_frame;
+  int steps_per_frame;
+  int frame_limit;
   Vector2D gravity;
 };
 
@@ -49,7 +51,7 @@ public:
   std::string name();
   std::string info();
 
-  void keyboard_event(int key, int event, unsigned char mods);
+  void key_event(char key) override;
   // void cursor_event(float x, float y);
   // void scroll_event(float offset_x, float offset_y);
   // void mouse_event(int key, int event, unsigned char mods);
@@ -57,8 +59,12 @@ public:
 private:
   AppConfig config;
 
-  Rope *ropeEuler;
-  Rope *ropeVerlet;
+  Rope *ropeEuler=nullptr;
+  Rope *ropeVerlet=nullptr;
+  Rope::EulerMethod euler_method=Rope::EulerMethod::SemiImplicit;
+  bool constraints=false;
+  bool paused=false,step_once=false;
+  int simulated_frames=0;
 
   size_t screen_width;
   size_t screen_height;

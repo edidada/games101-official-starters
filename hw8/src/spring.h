@@ -1,7 +1,7 @@
 #ifndef SPRING_H
 #define SPRING_H
 
-#include "CGL/CGL.h"
+#include "CGL/vector2D.h"
 #include "mass.h"
 
 using namespace std;

@@ -48,12 +48,10 @@ Viewer::Viewer() {
 
 Viewer::~Viewer() {
 
+  delete renderer; renderer=nullptr;
+  delete osd_text; osd_text=nullptr;
   glfwDestroyWindow(window);
   glfwTerminate();
-
-  // free resources
-  delete renderer;
-  delete osd_text;
 }
 
 
@@ -107,7 +105,9 @@ void Viewer::init() {
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   // resize components to current window size, get DPI
-  glfwGetFramebufferSize(window, (int*) &buffer_w, (int*) &buffer_h );
+  int initialWidth,initialHeight;
+  glfwGetFramebufferSize(window,&initialWidth,&initialHeight);
+  buffer_w=initialWidth;buffer_h=initialHeight;
   if( buffer_w > DEFAULT_W ) HDPI = true;
 
   // initialize renderer if already set

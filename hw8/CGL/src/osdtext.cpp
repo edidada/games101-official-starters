@@ -21,22 +21,20 @@ struct point {
 
 OSDText::OSDText() {
 
-  use_hdpi = false;
+  use_hdpi = false; font=nullptr;vbo=0;program=0;
 
-  ft   = new FT_Library;
-  face = new FT_Face;
+  ft   = new FT_Library{};
+  face = new FT_Face{};
 
   lines = vector<OSDLine>(); next_id = 0;
 }
 
 OSDText::~OSDText() {
 
-  delete ft;
-  delete font;
-  delete face;
-
-  lines.clear();
-  
+  if(*face) FT_Done_Face(*face);
+  if(*ft) FT_Done_FreeType(*ft);
+  delete face;delete ft;delete[] font;
+  glDeleteBuffers(1,&vbo);
   glDeleteProgram(program);
 }
 

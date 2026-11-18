@@ -7,7 +7,7 @@ namespace CGL {
 
 Application::Application(AppConfig config) { this->config = config; }
 
-Application::~Application() {}
+Application::~Application() { delete ropeEuler;delete ropeVerlet; }
 
 void Application::init() {
   // Enable anti-aliasing and circular points.
@@ -23,17 +23,24 @@ void Application::init() {
 
   glColor3f(1.0, 1.0, 1.0);
   // Create two ropes 
-  ropeEuler = new Rope(Vector2D(0, 200), Vector2D(-400, 200), 3, config.mass,
+  ropeEuler = new Rope(Vector2D(0, 200), Vector2D(-400, 200), 16, config.mass,
                        config.ks, {0});
-  ropeVerlet = new Rope(Vector2D(0, 200), Vector2D(-400, 200), 3, config.mass,
+  ropeVerlet = new Rope(Vector2D(0, 200), Vector2D(-400, 200), 16, config.mass,
                         config.ks, {0});
 }
 
 void Application::render() {
   //Simulation loops
+  if(!paused||step_once) {
   for (int i = 0; i < config.steps_per_frame; i++) {
-    ropeEuler->simulateEuler(1 / config.steps_per_frame, config.gravity);
-    ropeVerlet->simulateVerlet(1 / config.steps_per_frame, config.gravity);
+    ropeEuler->simulateEuler(1.f / config.steps_per_frame, config.gravity,euler_method);
+    if(constraints) ropeVerlet->simulateConstraints(1.f / config.steps_per_frame,config.gravity);
+    else ropeVerlet->simulateVerlet(1.f / config.steps_per_frame, config.gravity);
+  }
+  ++simulated_frames;step_once=false;
+  if(config.frame_limit>0&&simulated_frames==config.frame_limit) {
+    paused=true;std::cout<<"FREEZE frames="<<simulated_frames<<std::endl;
+  }
   }
   // Rendering ropes
   Rope *rope;
@@ -83,24 +90,30 @@ void Application::resize(size_t w, size_t h) {
   glOrtho(-half_width, half_width, -half_height, half_height, 1, 0);
 }
 
-void Application::keyboard_event(int key, int event, unsigned char mods) {
+void Application::key_event(char key) {
   switch (key) {
+  case ' ': paused=!paused;break;
+  case 'N': step_once=true;break;
+  case '1': euler_method=Rope::EulerMethod::Explicit;break;
+  case '2': euler_method=Rope::EulerMethod::SemiImplicit;break;
+  case 'C': constraints=!constraints;break;
   case '-':
     if (config.steps_per_frame > 1) {
       config.steps_per_frame /= 2;
     }
     break;
   case '=':
-    config.steps_per_frame *= 2;
+    config.steps_per_frame = std::min(4096,config.steps_per_frame*2);
     break;
   }
+  std::cout<<"KEY "<<key<<" steps="<<config.steps_per_frame<<" euler="<<(euler_method==Rope::EulerMethod::Explicit?"explicit":"semi")<<" green="<<(constraints?"constraint":"verlet")<<std::endl;
 }
 
 string Application::name() { return "Rope Simulator"; }
 
 string Application::info() {
   ostringstream steps;
-  steps << "Steps per frame: " << config.steps_per_frame;
+  steps << "Steps: " << config.steps_per_frame << " blue=" << (euler_method==Rope::EulerMethod::Explicit?"explicit":"semi") << " green=" << (constraints?"constraint":"verlet") << " paused=" << paused << " [1/2,C,+/-,Space,N]";
 
   return steps.str();
 }
