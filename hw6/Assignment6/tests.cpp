@@ -135,6 +135,29 @@ void correctness() {
     Triangle degenerate(Vector3f(0),Vector3f(1),Vector3f(2));
     require(!degenerate.getIntersection(forward).happened,"degenerate hit"); ++triangleChecks;
 
+    // Arbitrarily oriented triangles over twelve orders of area: the plane/
+    // Gram oracle must agree without sharing the production determinant code.
+    for(int i=0;i<1000;++i) {
+        float scale=i%3==0?1e-6f:(i%3==1?1.f:1e6f);
+        Vector3f base(value(random)*scale,value(random)*scale,value(random)*scale);
+        Vector3f edgeA(value(random)*scale,value(random)*scale,value(random)*scale);
+        Vector3f edgeB(value(random)*scale,value(random)*scale,value(random)*scale);
+        Triangle rotated(base,base+edgeA,base+edgeB,&material);
+        Vector3f target=rotated.v0*0.5f+rotated.v1*0.2f+rotated.v2*0.3f;
+        Ray r(target+rotated.normal*(30*scale),-rotated.normal);
+        auto expected=triangleOracle(rotated,r);
+        require(expected>=0,"constructed oriented reference missed");
+        compareHit(rotated.getIntersection(r),expected);
+        r.direction=-r.direction;
+        compareHit(rotated.getIntersection(r),-1);
+        triangleChecks+=2;
+    }
+    Ray boundary(Vector3f(0.5,0.5,1),Vector3f(0,0,-1));
+    boundary.t_min=boundary.t_max=1;
+    compareHit(tri.getIntersection(boundary),1); ++triangleChecks;
+    float nearest=100; uint32_t index=99;
+    require(tri.intersect(boundary,nearest,index)&&nearest==1&&index==0,"triangle interface");
+
     std::vector<Triangle> triangles;
     triangles.reserve(256);
     for(int i=0;i<256;++i) {
@@ -205,6 +228,17 @@ void benchmark() {
         auto hit=bunny.bvh->Intersect(r);
         reference.push_back(hit.happened?hit.distance:-1);
     }
+    bool checkedMeshInterface=false;
+    for(auto& r:rays) {
+        auto hit=bunny.getIntersection(r);
+        if(!hit.happened) continue;
+        float nearest=std::numeric_limits<float>::max(); uint32_t index=0;
+        require(bunny.intersect(r)&&bunny.intersect(r,nearest,index),"mesh interface missed");
+        require(index<bunny.triangles.size()&&std::abs(nearest-hit.distance)<1e-5,"mesh index/distance");
+        checkedMeshInterface=true;
+        break;
+    }
+    require(checkedMeshInterface,"bunny had no hits");
     size_t bruteChecks=0;
     for(size_t i=0;i<rays.size();i+=107) {
         long double expected=-1;
